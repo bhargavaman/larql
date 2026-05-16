@@ -28,7 +28,7 @@ mod runner {
     use std::io::{BufRead, BufReader, Write};
     use std::path::PathBuf;
 
-    use larql_inference::vindex::{predict_kquant_hidden_with_ffn, predict_q4k_with_ffn, WalkFfn};
+    use larql_inference::vindex::{predict_kquant_hidden_with_ffn, predict_kquant_with_ffn, WalkFfn};
     use larql_inference::{
         encode_prompt, hidden_to_raw_logits, open_inference_vindex, PredictResult,
     };
@@ -509,7 +509,7 @@ mod runner {
             unsafe { &*(weights as *const larql_models::ModelWeights) };
         let walk_ffn = WalkFfn::new_with_trace(weights_ref, index, feature_top_k);
         let result =
-            predict_q4k_with_ffn(weights, tokenizer, token_ids, pred_top_k, index, &walk_ffn);
+            predict_kquant_with_ffn(weights, tokenizer, token_ids, pred_top_k, index, &walk_ffn);
         let residuals = walk_ffn.take_residuals();
         (result, residuals)
     }

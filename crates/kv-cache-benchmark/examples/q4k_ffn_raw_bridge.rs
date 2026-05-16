@@ -2,7 +2,7 @@
 //!
 //! Reads LARQLF32 matrices exported by
 //! `~/chris-source/chris-experiments/shannon/35_ffn_functional_fidelity/ffn_functional_fidelity.py`, runs
-//! the production `q4k_ffn_forward_layer` path for one layer, and writes the
+//! the production `kquant_ffn_forward_layer` path for one layer, and writes the
 //! resulting raw FFN outputs back as LARQLF32 matrices.
 //!
 //! Usage:
@@ -33,7 +33,7 @@ mod bridge {
     use ndarray::Array2;
 
     use larql_inference::ffn::FfnBackend;
-    use larql_inference::vindex::{q4k_ffn_forward_layer, WalkFfn, WalkFfnConfig};
+    use larql_inference::vindex::{kquant_ffn_forward_layer, WalkFfn, WalkFfnConfig};
     use larql_vindex::{load_model_weights_q4k, SilentLoadCallbacks, VectorIndex};
 
     const MAGIC: &[u8; 8] = b"LARQLF32";
@@ -149,7 +149,7 @@ mod bridge {
                 );
                 walk.forward(args.layer, &x)
             } else {
-                q4k_ffn_forward_layer(weights.arch.as_ref(), &index, args.layer, &x)
+                kquant_ffn_forward_layer(weights.arch.as_ref(), &index, args.layer, &x)
             };
             let output_path = args
                 .output_dir

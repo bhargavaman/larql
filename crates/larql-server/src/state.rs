@@ -319,7 +319,7 @@ mod loaded_model_tests {
     //! The q4k / f32 branch in `get_or_load_weights` keys off
     //! `config.quant == QuantFormat::Q4K`, and `run_full_output` in
     //! `routes/walk_ffn.rs` keys off the same check to decide between
-    //! `WalkFfn::new_unlimited` and `q4k_ffn_forward_layer`. Running
+    //! `WalkFfn::new_unlimited` and `kquant_ffn_forward_layer`. Running
     //! either branch end-to-end needs a real on-disk vindex (GBs of
     //! weights), so we cover just the flag plumbing and the selector
     //! expression here; the end-to-end walk is validated by the
@@ -432,7 +432,7 @@ mod loaded_model_tests {
 
         assert!(
             q4k_model.config.quant == QuantFormat::Q4K,
-            "Q4K config → q4k branch (load_model_weights_q4k + q4k_ffn_forward_layer)"
+            "Q4K config → q4k branch (load_model_weights_q4k + kquant_ffn_forward_layer)"
         );
         assert!(
             f32_model.config.quant != QuantFormat::Q4K,

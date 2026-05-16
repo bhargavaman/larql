@@ -493,7 +493,7 @@ pub(crate) fn run_full_output_core(
                     layer: usize,
                     x: &larql_vindex::ndarray::Array2<f32>,
                 ) -> larql_vindex::ndarray::Array2<f32> {
-                    larql_inference::vindex::q4k_ffn_forward_layer(self.arch, self.index, layer, x)
+                    larql_inference::vindex::kquant_ffn_forward_layer(self.arch, self.index, layer, x)
                 }
                 fn forward_with_activation(
                     &self,
@@ -685,7 +685,7 @@ pub(crate) fn run_full_output_core(
         let out = if let Some(ref wf) = walk_ffn {
             wf.forward(layer, &x)
         } else {
-            larql_inference::vindex::q4k_ffn_forward_layer(
+            larql_inference::vindex::kquant_ffn_forward_layer(
                 &*weights.arch,
                 patched.base(),
                 layer,
@@ -909,7 +909,7 @@ pub(crate) const Q8K_BATCH_CT: &str = "application/x-larql-ffn-q8k-batch";
 ///
 /// The client has already applied the FFN input norm and quantised the
 /// activation to Q8_K. The server decodes each entry, runs
-/// `q4k_ffn_forward_layer_q8k` (uses the NEON/AVX2 Q4K×Q8K gate+up kernel),
+/// `kquant_ffn_forward_layer_q8k` (uses the NEON/AVX2 Q4K×Q8K gate+up kernel),
 /// and returns the FFN delta per layer as f32.
 ///
 /// Returns 404 if the vindex doesn't have interleaved Q4K data (ffn-only
@@ -942,7 +942,7 @@ pub async fn handle_walk_ffn_q8k(
 
     let result = tokio::task::spawn_blocking(move || {
         use larql_inference::ffn::remote::{decode_q8k_batch_request, encode_q8k_batch_response};
-        use larql_inference::vindex::q4k_ffn_forward_layer_q8k;
+        use larql_inference::vindex::kquant_ffn_forward_layer_q8k;
 
         let model = state
             .model(None)
@@ -1079,7 +1079,7 @@ pub async fn handle_walk_ffn_q8k(
                         "layer {layer} not served by this shard (owned: {range_desc})"
                     )));
                 }
-                let out = q4k_ffn_forward_layer_q8k(arch, patched.base(), layer, &entry.q8k);
+                let out = kquant_ffn_forward_layer_q8k(arch, patched.base(), layer, &entry.q8k);
                 Ok((layer, out.into_raw_vec_and_offset().0))
             })
             .collect();
