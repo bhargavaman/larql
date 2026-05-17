@@ -6,19 +6,24 @@ otherwise — `crates/larql-models/src/loading/safetensors.rs:329`).
 MLX's `mlx_lm` rejects the model and needs an upstream fix. Last
 updated 2026-05-17.
 
-Affected repos (confirmed empirically on 8B; 30B inferred from same
-packaging pattern and matching ship date in the same collection,
-needs the same probe to confirm):
+Affected repos (verified by inspecting `model.safetensors.index.json`
+for the `lm_head.weight` key on each snapshot, 2026-05-17):
 
-- [ibm-granite/granite-4.1-8b](https://huggingface.co/ibm-granite/granite-4.1-8b) — **confirmed**
-- [ibm-granite/granite-4.1-8b-base](https://huggingface.co/ibm-granite/granite-4.1-8b-base) — inferred
-- [ibm-granite/granite-4.1-30b](https://huggingface.co/ibm-granite/granite-4.1-30b) — inferred
-- [ibm-granite/granite-4.1-30b-base](https://huggingface.co/ibm-granite/granite-4.1-30b-base) — inferred
+- [ibm-granite/granite-4.1-8b](https://huggingface.co/ibm-granite/granite-4.1-8b) — **affected** (ships `lm_head.weight`)
+- [ibm-granite/granite-4.1-8b-base](https://huggingface.co/ibm-granite/granite-4.1-8b-base) — inferred (same export pipeline as -8b)
+- [ibm-granite/granite-4.1-30b-base](https://huggingface.co/ibm-granite/granite-4.1-30b-base) — inferred (please verify with the snippet below)
 
-3B (`ibm-granite/granite-4.1-3b`) and the 4.0 family are **not**
-affected — they ship only `model.embed_tokens.weight` and consumers
-correctly fall back to it for the output projection. So 4.1-8B is a
-regression from the 3B's packaging in the same release.
+Unaffected (correctly packaged, ship only `model.embed_tokens.weight`):
+
+- `ibm-granite/granite-4.1-3b` — verified
+- `ibm-granite/granite-4.1-30b` — **verified** (no `lm_head.weight` on disk, 12-shard layout, matches the 3B's correct pattern)
+- The entire 4.0 family
+
+So this is a **regression isolated to the 8B export** (and presumably
+its `-base` sibling — please confirm). The 30B sized down from 64 GB
+to 56 GB on disk *because* it doesn't carry the redundant tensor
+that 8B does. Worth diffing the two export pipelines to find what
+triggered the divergence.
 
 ## TL;DR
 

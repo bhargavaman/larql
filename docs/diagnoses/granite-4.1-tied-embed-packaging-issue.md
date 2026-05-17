@@ -111,15 +111,17 @@ intentional plan to keep `lm_head` separately updatable.
 
 ## Affected repos
 
-Confirmed empirically:
-- [ ] `ibm-granite/granite-4.1-8b`
+Verified (`grep '"lm_head' model.safetensors.index.json` on the snapshot):
+- [x] `ibm-granite/granite-4.1-8b` — **affected** (ships `lm_head.weight`)
+- [ ] `ibm-granite/granite-4.1-8b-base` — likely affected (same export pipeline), please verify
 
-Inferred (same packaging pipeline, same release window — please verify
-with the snippet above):
-- [ ] `ibm-granite/granite-4.1-8b-base`
-- [ ] `ibm-granite/granite-4.1-30b`
-- [ ] `ibm-granite/granite-4.1-30b-base`
+Verified correct (no `lm_head.weight` on disk, matches 3B layout):
+- [x] `ibm-granite/granite-4.1-3b` + `-base`
+- [x] `ibm-granite/granite-4.1-30b`
+- Entire 4.0 family
 
-3B (`ibm-granite/granite-4.1-3b` + `-base`) and the entire 4.0
-family are correctly packaged — no `lm_head.weight` on disk when
-`tie_word_embeddings: true`.
+So this is **isolated to the 8B export**: the 30B (and 3B) correctly
+omit the redundant tensor. The 8B's `tokenizer_config.json` /
+`config.json` are identical in spirit to the 3B/30B's, so the
+divergence is purely on the safetensors export side — likely a
+flag that wasn't carried over in the 8B's export pipeline.
