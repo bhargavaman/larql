@@ -13,7 +13,7 @@ use axum::http::{header, Request, StatusCode};
 use tower::ServiceExt;
 
 async fn post_completions(body: serde_json::Value) -> axum::http::Response<Body> {
-    let (model, _fixture) = common::model_with_real_weights("synthetic");
+    let (model, _fixture) = common::model_with_q4k_weights("synthetic");
     let state = common::state(vec![model]);
     let app = larql_server::routes::single_model_router(state);
     let resp = app
@@ -131,13 +131,26 @@ async fn completions_streaming_single_prompt_returns_sse() {
         ct.contains("event-stream"),
         "expected SSE content-type, got {ct}"
     );
-    // Drain the body so the background task can finish (or get cancelled).
-    let _ = axum::body::to_bytes(resp.into_body(), 64 * 1024).await;
+    // Drain the full body so spawn_blocking has time to emit every
+    // chunk through ReceiverStream — without a complete drain the
+    // background task drops early and the per-token branches stay
+    // uncovered.
+    let body = axum::body::to_bytes(resp.into_body(), usize::MAX)
+        .await
+        .unwrap();
+    let body_str = String::from_utf8_lossy(&body);
+    // The stream must terminate with `data: [DONE]\n\n`.
+    assert!(
+        body_str.contains("[DONE]"),
+        "SSE stream must terminate with [DONE]; got {body_str:?}"
+    );
+    eprintln!("SSE body length: {}", body_str.len());
+    eprintln!("SSE body sample: {}", &body_str[..body_str.len().min(500)]);
 }
 
 #[tokio::test]
 async fn completions_invalid_json_returns_400() {
-    let (model, _fixture) = common::model_with_real_weights("synthetic");
+    let (model, _fixture) = common::model_with_q4k_weights("synthetic");
     let state = common::state(vec![model]);
     let app = larql_server::routes::single_model_router(state);
     let resp = app
@@ -172,11 +185,15 @@ async fn completions_with_sampling_params_runs_sampler_branches() {
 
 #[tokio::test]
 async fn completions_with_stop_strings_runs_stop_check_branch() {
+    // The synthetic generator emits tokens from its WordLevel vocab.
+    // Including the most common produced characters as stop strings
+    // forces the contains_any → trim_at_stop branch (completions.rs
+    // L481-494) to fire, which is the deepest uncovered path here.
     let resp = post_completions(serde_json::json!({
         "model": "synthetic",
         "prompt": "x",
-        "max_tokens": 4,
-        "stop": ["END", "STOP"],
+        "max_tokens": 16,
+        "stop": ["x", " "],
     }))
     .await;
     assert!(resp.status() == StatusCode::OK || resp.status().is_server_error());

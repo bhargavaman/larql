@@ -73,6 +73,12 @@ larql-router = { path = "../larql-router" }
 # `Arc<parking_lot::RwLock<GridState>>` to pass into
 # `GridServiceImpl::new`.
 parking_lot = "0.12"
+# Q4K synthetic vindex fixture writes a tiny Llama-shaped safetensors
+# model to a tempdir, then runs it through `build_vindex_streaming`
+# (`tests/common/synthetic_q4k_vindex.rs`). Matches the version pinned
+# by larql-vindex so the safetensors writer stays in sync with the
+# extraction reader.
+safetensors = "0.7"
 # Exp 53 ShardService criterion benches.
 criterion = { version = "0.5", features = ["html_reports"] }
 

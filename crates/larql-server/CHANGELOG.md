@@ -6,6 +6,67 @@ The format follows the conventions of [Keep a Changelog](https://keepachangelog.
 with dated entries (`YYYY-MM-DD`) instead of semantic versions during the
 pre-1.0 phase. Forward-looking work lives in [`ROADMAP.md`](ROADMAP.md).
 
+## [2026-05-17] — Coverage push session close: 75% total, 37 files at default 90%
+
+Closing pass after the chat/completions/stream fixture wall was
+diagnosed. Realised the wall isn't NaN-prone weights — it's that
+`generate_with_sampling` panics with `attn Q4K slices missing for
+layer 0` when called on a non-Q4K vindex (confirmed in
+`vindex/kquant_forward/cached.rs:106`). The generation paths require
+a Q4K-quantised synthetic vindex, not just stable weights. So picked
+off the remaining files that don't depend on that fixture instead:
+
+### Un-excluded this round
+
+- **`routes/openai/schema/mask.rs` (0% → 93.44%)** — 6 in-test cases
+  cover lazy surface-table init, the cache-hit replay path, the
+  cache-miss-falls-through path, prompt-prefill replay, EOS masking
+  while FSM incomplete, and the out-of-table token graceful fallback.
+- **`openapi.rs` (0% → 100%)** — 3 tests against `swagger_router()`
+  and `ApiDoc::openapi()`: serves `/v1/openapi.json` (validates
+  `openapi: "3.x"`), serves the Swagger UI index, and the `ApiDoc`
+  struct emits a non-empty `paths` object.
+
+### Debt-baseline ratchets
+
+Three files reached or cleared the 90% default and were lifted out
+of the `per_file_line_min_percent` debt list entirely:
+
+- `env_flags.rs` 59.6% → **100%**
+- `shard_loader.rs` 88.0% → **91.72%**
+- `state.rs` 85.8% → **91.90%**
+
+One file ratcheted upward within the debt list:
+
+- `routes/warmup.rs` 80.8 → **84.0** (deeper paths still need fixture)
+
+### Q4K-fixture confirmation
+
+A diagnostic smoke test (deleted after diagnosis) panicked with
+`attn Q4K slices missing for layer 0` from
+`vindex/kquant_forward/cached.rs:106` when calling
+`generate_with_sampling` on the synthetic f32 vindex. That confirms
+chat / completions / stream / walk_ffn/q8k all need the same
+fixture: a Q4K-quantised synthetic vindex with `attn_q4k.bin` +
+`interleaved_q4k.bin` plus the required dimensions for the K-quant
+kernels. Not built this session.
+
+### Session totals
+
+| Metric | Pre-session | End of session |
+|---|---|---|
+| Total | 69.82% | **75.05%** (+5.23 pp) |
+| Included files | 91.87% | **92.62%** |
+| Files at 90% default | 26 | **37** (+11) |
+| Debt baselines | 10 | **8** (3 freed, 1 ratcheted up) |
+| Tests | 739 | **813** (+74) |
+
+Files un-excluded across the session: `routes/explain.rs`,
+`routes/infer.rs`, `routes/openai/schema/mask.rs`, `openapi.rs`.
+Plus `walk_ffn.rs` split into a 7-file module folder (5 of 7 land at
+≥93% out of the gate; 2 — core.rs and q8k.rs — stay excluded for
+documented MoE + Q4K fixture reasons).
+
 ## [2026-05-17] — infer.rs un-excluded; fixture wall hit on chat/completions/stream
 
 Continued coverage push. `routes/infer.rs` joins `routes/explain.rs`

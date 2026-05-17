@@ -10,7 +10,6 @@
     "crates/larql-server/src/announce.rs",
     "crates/larql-server/src/grpc.rs",
     "crates/larql-server/src/grpc_expert.rs",
-    "crates/larql-server/src/openapi.rs",
     "crates/larql-server/src/routes/stream.rs",
     "crates/larql-server/src/routes/walk_ffn/core.rs",
     "crates/larql-server/src/routes/walk_ffn/q8k.rs",
@@ -21,14 +20,12 @@
     "crates/larql-server/src/routes/expert/layer_batch.rs",
     "crates/larql-server/src/routes/expert/multi_layer_batch.rs",
     "crates/larql-server/src/routes/expert/single.rs",
-    "crates/larql-server/src/routes/expert/warmup.rs",
-    "crates/larql-server/src/routes/openai/schema/mask.rs"
+    "crates/larql-server/src/routes/expert/warmup.rs"
   ],
   "default_line_min_percent": 90.0,
   "total_line_min_percent": 65.0,
   "included_total_line_min_percent": 90.0,
   "per_file_line_min_percent": {
-    "crates/larql-server/src/env_flags.rs": 59.6,
     "crates/larql-server/src/routes/embed.rs": 86.1,
     "crates/larql-server/src/routes/insert.rs": 76.7,
     "crates/larql-server/src/routes/openai/schema/ast.rs": 80.5,
@@ -36,8 +33,6 @@
     "crates/larql-server/src/routes/openai/schema/tools.rs": 88.2,
     "crates/larql-server/src/routes/topology.rs": 60.6,
     "crates/larql-server/src/routes/walk_ffn/handler.rs": 86.0,
-    "crates/larql-server/src/routes/warmup.rs": 80.8,
-    "crates/larql-server/src/shard_loader.rs": 88.0,
-    "crates/larql-server/src/state.rs": 85.8
+    "crates/larql-server/src/routes/warmup.rs": 84.0
   }
 }

@@ -2,12 +2,17 @@
 //! synthetic vindex. Determines whether the synthetic weights are
 //! stable enough to drive the chat/completions/stream coverage push,
 //! or whether the weights need tuning first.
+//!
+//! Uses the Q4K-quantised synthetic fixture (`model_with_q4k_weights`)
+//! because `generate_with_sampling` on a CPU backend routes through
+//! `generate_via_cpu_q4k` → `predict_kquant_prefill`, which panics with
+//! "attn Q4K slices missing" against an f32-only vindex.
 
 mod common;
 
 #[test]
 fn synthetic_vindex_generates_at_least_one_token() {
-    let (model, _fixture) = common::model_with_real_weights("synthetic");
+    let (model, _fixture) = common::model_with_q4k_weights("synthetic");
 
     let mut weights_guard = model.lock_weights_for_gen().expect("lock weights");
     let weights: &mut larql_inference::ModelWeights = &mut weights_guard;
