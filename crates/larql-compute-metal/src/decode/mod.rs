@@ -161,6 +161,7 @@ impl MetalBackend {
             moe_fn,
             None,
             None,
+            larql_compute::StateDumpMask::Full,
         )
     }
 
@@ -192,6 +193,44 @@ impl MetalBackend {
         rope_base: f32,
         state: &mut larql_compute::DecodeStateDump,
     ) -> Vec<f32> {
+        self.decode_token_with_state_dump_masked_fn(
+            kv_cache,
+            layers,
+            x,
+            hidden,
+            inter,
+            q_dim,
+            kv_dim,
+            num_q_heads,
+            num_kv_heads,
+            head_dim,
+            rope_base,
+            state,
+            larql_compute::StateDumpMask::Full,
+        )
+    }
+
+    /// Mask-aware variant of [`Self::decode_token_with_state_dump_fn`].
+    /// W10 Phase B: engines that treat K/V as derivative can pass
+    /// [`larql_compute::StateDumpMask::HOnly`] to skip the K/V staging +
+    /// readback.
+    #[allow(clippy::too_many_arguments)]
+    pub fn decode_token_with_state_dump_masked_fn(
+        &self,
+        kv_cache: &mut ops::kv_cache::KVCache,
+        layers: &[larql_compute::FullPipelineLayer],
+        x: &[f32],
+        hidden: usize,
+        inter: usize,
+        q_dim: usize,
+        kv_dim: usize,
+        num_q_heads: usize,
+        num_kv_heads: usize,
+        head_dim: usize,
+        rope_base: f32,
+        state: &mut larql_compute::DecodeStateDump,
+        mask: larql_compute::StateDumpMask,
+    ) -> Vec<f32> {
         self.decode_token_with_moe_split_fn(
             kv_cache,
             layers,
@@ -207,6 +246,7 @@ impl MetalBackend {
             None,
             None,
             Some(state),
+            mask,
         )
     }
 
@@ -230,7 +270,17 @@ impl MetalBackend {
         mut moe_fn: Option<&mut dyn FnMut(usize, &[f32]) -> Vec<f32>>,
         mut moe_collect_fn: Option<&mut dyn FnMut(usize) -> Vec<f32>>,
         mut state_dump: Option<&mut larql_compute::DecodeStateDump>,
+        state_dump_mask: larql_compute::StateDumpMask,
     ) -> Vec<f32> {
+        // W10 Phase B/C: capture flags. `dump_kv` controls the K/V
+        // staging + readback (skipped under HOnly + None — Metal's own
+        // kv cache still receives the K/V as a side effect for
+        // attention). `dump_h` controls the h_in staging + readback
+        // (skipped under None only — engines using `None` have no
+        // CPU-side use for the residual stream, e.g.
+        // MarkovResidualEngine with no window).
+        let dump_kv = matches!(state_dump_mask, larql_compute::StateDumpMask::Full);
+        let dump_h = !matches!(state_dump_mask, larql_compute::StateDumpMask::None);
         let _gpu_time_token_start = std::time::Instant::now();
         let mut gpu_time = gpu_timing::TokenGpuTime::default();
 
@@ -303,16 +353,20 @@ impl MetalBackend {
         // per-layer commit+wait+CPU-read. Reads run once after the final
         // commit. Saves ~1.7 ms / token (50 µs × num_layers) on M3 Max.
         let staging_bufs: Option<(Vec<metal::Buffer>, Vec<metal::Buffer>, Vec<metal::Buffer>)> =
-            if state_dump.is_some() {
-                let mut sk = Vec::with_capacity(num_layers);
-                let mut sv = Vec::with_capacity(num_layers);
-                let mut sh = Vec::with_capacity(num_layers);
+            if state_dump.is_some() && (dump_kv || dump_h) {
+                let mut sk = Vec::with_capacity(if dump_kv { num_layers } else { 0 });
+                let mut sv = Vec::with_capacity(if dump_kv { num_layers } else { 0 });
+                let mut sh = Vec::with_capacity(if dump_h { num_layers } else { 0 });
                 let hidden_bytes = (hidden * 4) as u64;
                 for layer in layers.iter() {
-                    let kv_dim_bytes = (layer.num_kv_heads * layer.head_dim * 4) as u64;
-                    sk.push(self.bufs.output(kv_dim_bytes));
-                    sv.push(self.bufs.output(kv_dim_bytes));
-                    sh.push(self.bufs.output(hidden_bytes));
+                    if dump_kv {
+                        let kv_dim_bytes = (layer.num_kv_heads * layer.head_dim * 4) as u64;
+                        sk.push(self.bufs.output(kv_dim_bytes));
+                        sv.push(self.bufs.output(kv_dim_bytes));
+                    }
+                    if dump_h {
+                        sh.push(self.bufs.output(hidden_bytes));
+                    }
                 }
                 Some((sk, sv, sh))
             } else {
@@ -373,21 +427,23 @@ impl MetalBackend {
             //   command-buffer ordering guarantees it sees the settled
             //   value once committed. Drained into state_dump after the
             //   single final commit at the bottom of the function.
-            if let Some(s) = state_dump.as_deref_mut() {
-                if l == 0 {
-                    s.h_in_per_layer.push(x.to_vec());
-                }
-            }
-            if let Some((_, _, ref sh)) = staging_bufs {
-                if l > 0 {
-                    if !encoder_ended {
-                        enc.end_encoding();
+            if dump_h {
+                if let Some(s) = state_dump.as_deref_mut() {
+                    if l == 0 {
+                        s.h_in_per_layer.push(x.to_vec());
                     }
-                    let blit = cmd.new_blit_command_encoder();
-                    blit.copy_from_buffer(h_buf, 0, &sh[l], 0, (hidden * 4) as u64);
-                    blit.end_encoding();
-                    enc = cmd.new_compute_command_encoder().to_owned();
-                    encoder_ended = false;
+                }
+                if let Some((_, _, ref sh)) = staging_bufs {
+                    if l > 0 && !sh.is_empty() {
+                        if !encoder_ended {
+                            enc.end_encoding();
+                        }
+                        let blit = cmd.new_blit_command_encoder();
+                        blit.copy_from_buffer(h_buf, 0, &sh[l], 0, (hidden * 4) as u64);
+                        blit.end_encoding();
+                        enc = cmd.new_compute_command_encoder().to_owned();
+                        encoder_ended = false;
+                    }
                 }
             }
             let dump_l0_dir = if l == 0 {
@@ -653,18 +709,20 @@ impl MetalBackend {
             // command-buffer encode order), so the blit captures the
             // correct values. Drained into state_dump after the single
             // final commit at the bottom of the function.
-            if let Some((ref sk, ref sv, _)) = staging_bufs {
-                if !encoder_ended {
-                    enc.end_encoding();
+            if dump_kv {
+                if let Some((ref sk, ref sv, _)) = staging_bufs {
+                    if !encoder_ended {
+                        enc.end_encoding();
+                    }
+                    let blit = cmd.new_blit_command_encoder();
+                    let layer_kv_dim_local = layer.num_kv_heads * layer.head_dim;
+                    let bytes = (layer_kv_dim_local * 4) as u64;
+                    blit.copy_from_buffer(&k_out, 0, &sk[l], 0, bytes);
+                    blit.copy_from_buffer(&v_out, 0, &sv[l], 0, bytes);
+                    blit.end_encoding();
+                    enc = cmd.new_compute_command_encoder().to_owned();
+                    encoder_ended = false;
                 }
-                let blit = cmd.new_blit_command_encoder();
-                let layer_kv_dim_local = layer.num_kv_heads * layer.head_dim;
-                let bytes = (layer_kv_dim_local * 4) as u64;
-                blit.copy_from_buffer(&k_out, 0, &sk[l], 0, bytes);
-                blit.copy_from_buffer(&v_out, 0, &sv[l], 0, bytes);
-                blit.end_encoding();
-                enc = cmd.new_compute_command_encoder().to_owned();
-                encoder_ended = false;
             }
 
             // Per-layer NaN diagnostic (LARQL_DEBUG_NAN_LAYERS=1).
@@ -862,16 +920,20 @@ impl MetalBackend {
         // body.
         if let Some(s) = state_dump.as_deref_mut() {
             if let Some((sk, sv, sh)) = staging_bufs.as_ref() {
-                for (l, _) in layers.iter().enumerate().skip(1) {
-                    s.h_in_per_layer
-                        .push(super::buffers::read_buffer_f32(&sh[l], hidden));
+                if dump_h {
+                    for (l, _) in layers.iter().enumerate().skip(1) {
+                        s.h_in_per_layer
+                            .push(super::buffers::read_buffer_f32(&sh[l], hidden));
+                    }
                 }
-                for (l, layer) in layers.iter().enumerate() {
-                    let kv_dim_local = layer.num_kv_heads * layer.head_dim;
-                    s.k_new_per_layer
-                        .push(super::buffers::read_buffer_f32(&sk[l], kv_dim_local));
-                    s.v_new_per_layer
-                        .push(super::buffers::read_buffer_f32(&sv[l], kv_dim_local));
+                if dump_kv {
+                    for (l, layer) in layers.iter().enumerate() {
+                        let kv_dim_local = layer.num_kv_heads * layer.head_dim;
+                        s.k_new_per_layer
+                            .push(super::buffers::read_buffer_f32(&sk[l], kv_dim_local));
+                        s.v_new_per_layer
+                            .push(super::buffers::read_buffer_f32(&sv[l], kv_dim_local));
+                    }
                 }
             }
         }

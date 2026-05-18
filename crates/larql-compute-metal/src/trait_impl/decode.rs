@@ -665,6 +665,25 @@ impl DecodeBackend for MetalBackend {
         inter: usize,
         state: Option<&mut larql_compute::DecodeStateDump>,
     ) -> Option<Vec<f32>> {
+        self.decode_token_with_state_dump_masked(
+            layers,
+            x,
+            hidden,
+            inter,
+            state,
+            larql_compute::StateDumpMask::Full,
+        )
+    }
+
+    fn decode_token_with_state_dump_masked(
+        &self,
+        layers: &[larql_compute::FullPipelineLayer<'_>],
+        x: &[f32],
+        hidden: usize,
+        inter: usize,
+        state: Option<&mut larql_compute::DecodeStateDump>,
+        mask: larql_compute::StateDumpMask,
+    ) -> Option<Vec<f32>> {
         let Some(state) = state else {
             // No state requested → fall back to the fast fused path.
             return <Self as DecodeBackend>::decode_token(self, layers, x, hidden, inter);
@@ -677,7 +696,7 @@ impl DecodeBackend for MetalBackend {
             layers,
             crate::decode::DEFAULT_KV_CACHE_MAX_SEQ,
         );
-        Some(MetalBackend::decode_token_with_state_dump_fn(
+        Some(MetalBackend::decode_token_with_state_dump_masked_fn(
             self,
             kv,
             layers,
@@ -691,6 +710,7 @@ impl DecodeBackend for MetalBackend {
             head_dim,
             rope_base,
             state,
+            mask,
         ))
     }
 
@@ -794,6 +814,7 @@ impl DecodeBackend for MetalBackend {
             Some(&mut fire_wrapper),
             Some(moe_collect_fn),
             None, // no state capture on split fire/collect MoE path
+            larql_compute::StateDumpMask::Full,
         ))
     }
 
