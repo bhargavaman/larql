@@ -19,7 +19,7 @@
     "consequence": "the verdict is taken on bank 3 only. The window (256), the secondary window (128) and every rule constant are fixed before any bank-3 arm runs; δ, ε, the tail factor, N_MIN, the band threshold, block length, stratification and seed are CODEC-2's, unchanged"
   },
   "baseline": {
-    "code": "main after #655 (the CODEC-3 reconnaissance: codec-recent/v1 and its controls)",
+    "code": "main 19cbb4ba (#655 merged: codec-recent/v1, its controls, and the CODEC-3 reconnaissance record)",
     "provider": "codec-recent/v1 (larql-kv vindex3/codec_recent.rs): codec/v1's retention and TurboQuant per head; every V row encoded once at append; the newest exact_recent_k K rows of each layer held as exact f32 copies; a K row encoded once when it ages out. Keys bits and exact_recent_k, both required. Shipped in the continuation registry",
     "instrument": "the MEM-1 harness: CODEC-2's statistics and run machinery (B1 McNemar, stratified block bootstrap, B4 with N_MIN, guard A — with their known-answer controls) and the CODEC-3 reconnaissance's mixed residency and trace. CODEC-2's and the reconnaissance's modules and records stay untouched",
     "residency": "ESTABLISHED on bank 1 by the reconnaissance (live = declared at w = 64/128/256/512); re-checked at every rung end here as a guard, not re-adjudicated"
