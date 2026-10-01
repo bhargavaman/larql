@@ -1,0 +1,37 @@
+{
+  "programme": "CONTINUATION-CODEC-3",
+  "forecast": "continuation-codec-3.json (frozen; not edited)",
+  "rule": "per-wave findings and design changes are recorded here with their reason; the forecast is not edited",
+  "freeze_provenance": {
+    "reconnaissance": "#655 → 19cbb4ba",
+    "freeze (incl. revision_before_merge: acceptance.rule_binding)": "#656 → bc05186e",
+    "bank_3_rule_pushed_before_fetch": "6045c9e1"
+  },
+  "waves": {
+    "W1": {
+      "status": "built; awaiting review and merge",
+      "built": [
+        "codec_3_freeze.rs: the freeze file as the authority — acceptance.rule_binding read at run time (refuses a missing role, an undeclared arm, a symbol the inherited rule does not name, duplicate roles); bank 3 loaded against the digest the freeze names; the compressed-arm table; adjudicate_bound applies CODEC-2's unchanged adjudicate() to every bound arm and takes the verdict from the primary's alone",
+        "codec_3_freeze_arms.rs: per rung R → NULL → C (scores and logits under distinct names) → CH, CH-recent256, CH-recent128, each traced; residency (CODEC-1's equation for CH, the reconnaissance's mixed residency for the CH-recent arms) and the trace = CH's are stop guards; the record",
+        "codec_3_freeze_run.rs: W2's ignored entry point (LARQL_CODEC3_F32 / _Q4K / _RUN_DIR), four authorities",
+        "codec_3_freeze_controls.rs, codec_3_freeze_e2e.rs: the controls below"
+      ],
+      "controls": [
+        "the binding reads as frozen; four malformed bindings refused by name",
+        "the arm table equals the freeze's compressed arms, each running what its description states (bits, window)",
+        "bank 3 loads at the frozen digest; a freeze naming another bank is refused",
+        "secondary isolation both directions on hand-built strata: primary fails / secondary passes ⇒ NotAcceptable; primary passes / secondary fails ⇒ Acceptable",
+        "the trace and residency guards refuse seeded faults; executed: a window wider than declared stops the mixed-residency guard",
+        "the run module executed end to end on a three-rung fixture ladder: every arm, a resume that rewrites nothing, the record through the binding, traces equal to CH's and residency holding at every rung",
+        "executed at the call site: a resumed CH-recent arm whose recorded CH trace differs stops the run"
+      ],
+      "verification_of_controls": [
+        "routing the verdict through the secondary instead of the primary turns the isolation control red",
+        "FOUND AND CLOSED: disabling the trace guard's call inside the run loop survived every control (on fixtures every trace equals CH's, so the record looked right). The executed call-site control above was added; the mutant is now caught"
+      ],
+      "known_limit": "the residency guards' call sites are exercised only on providers that hold their declaration; the guards themselves refuse seeded and executed faults. A provider fault at the call site would still be visible in the record (residency.holds), which the e2e asserts",
+      "no_model_arm": "no arm has run on bank 3"
+    }
+  },
+  "status": "OPEN — W1 built"
+}
