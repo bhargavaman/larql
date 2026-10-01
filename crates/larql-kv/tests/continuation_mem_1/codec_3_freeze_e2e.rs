@@ -11,7 +11,7 @@ use sha2::{Digest, Sha256};
 use super::codec_2_arms::Ladder;
 use super::codec_2_store::Checkpoints;
 use super::codec_3_freeze::{freeze, Binding, ARMS};
-use super::codec_3_freeze_arms::{record, run_arms};
+use super::codec_3_freeze_arms::{record, run_arms, stored_residency_guard};
 use super::*;
 
 /// Three short rungs that cross the fixture's sliding window, and windows
@@ -147,5 +147,106 @@ fn a_resumed_arm_whose_trace_differs_from_chs_stops_the_run() {
     assert!(
         message.contains("CH-recent256") && message.contains("provider fault"),
         "{message}"
+    );
+}
+
+/// Edit one stored checkpoint in place, leaving every checkpoint present.
+fn corrupt(store: &Checkpoints, name: &str, edit: impl Fn(&mut Value)) {
+    let path = store.path(name);
+    let mut v: Value = serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+    edit(&mut v);
+    std::fs::write(&path, serde_json::to_string(&v).unwrap()).unwrap();
+}
+
+fn stop_message(f: impl FnOnce() + std::panic::UnwindSafe) -> String {
+    let stopped = std::panic::catch_unwind(f).expect_err("a corrupted store must be refused");
+    stopped
+        .downcast_ref::<String>()
+        .cloned()
+        .unwrap_or_default()
+}
+
+/// One seeded corruption of a stored checkpoint, and the stop it must cause.
+struct Corruption {
+    arm: &'static str,
+    what: &'static str,
+    edit: fn(&mut Value),
+    stop: &'static str,
+}
+
+/// Revalidation on resume and before the record: a completed store whose
+/// checkpoints are all present is evidence only while their guards hold.
+#[test]
+fn a_completed_store_is_revalidated_not_trusted() {
+    let _serial = serial();
+    let n = ladder().rungs[1];
+    let cases = [
+        Corruption {
+            arm: "ch",
+            what: "CH's stored trace",
+            edit: |v| v["trace"][0] = json!("0"),
+            stop: "provider fault",
+        },
+        Corruption {
+            arm: "ch-recent256",
+            what: "a recorded holds=false",
+            edit: |v| v["residency"]["holds"] = json!(false),
+            stop: "does not hold",
+        },
+        Corruption {
+            arm: "ch-recent128",
+            what: "a stray beside holds=true",
+            edit: |v| v["residency"]["strays"] = json!(1),
+            stop: "does not hold",
+        },
+    ];
+    for Corruption {
+        arm,
+        what,
+        edit,
+        stop: needle,
+    } in cases
+    {
+        let dir = tempfile::tempdir().unwrap();
+        let (store, stamp) = run_fixture(dir.path());
+        let files = store.files().len();
+        corrupt(&store, &format!("n{n}-{arm}.json"), edit);
+        let path = dir.path().to_path_buf();
+        let resumed = stop_message(move || {
+            run_fixture(&path);
+        });
+        assert!(resumed.contains(needle), "resume after {what}: {resumed}");
+        let binding = Binding::from_freeze(&freeze()).unwrap();
+        let recorded = stop_message(|| {
+            record(&stamp, &binding, &store, &ladder());
+        });
+        assert!(recorded.contains(needle), "record after {what}: {recorded}");
+        assert_eq!(
+            store.files().len(),
+            files,
+            "{what}: every checkpoint stays present"
+        );
+    }
+}
+
+#[test]
+fn a_stored_residency_is_recomputed_from_its_fields() {
+    let held = json!({"holds": true, "append_born_live": 10, "expected": 10, "strays": 0,
+        "scratch_bytes": 4, "scratch_bound": 8});
+    stored_residency_guard("CH", 1, &held).unwrap();
+    for (k, v) in [
+        ("expected", json!(11)),
+        ("scratch_bytes", json!(9)),
+        ("window_mismatches", json!(1)),
+    ] {
+        let mut bad = held.clone();
+        bad[k] = v;
+        assert!(stored_residency_guard("CH", 1, &bad).is_err(), "{k}");
+    }
+    let mut no_strays = held.clone();
+    no_strays.as_object_mut().unwrap().remove("strays");
+    assert!(
+        stored_residency_guard("CH", 1, &no_strays).is_err(),
+        "strays is required"
     );
 }

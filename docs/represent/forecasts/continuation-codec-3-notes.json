@@ -23,14 +23,16 @@
         "secondary isolation both directions on hand-built strata: primary fails / secondary passes ⇒ NotAcceptable; primary passes / secondary fails ⇒ Acceptable",
         "the trace and residency guards refuse seeded faults; executed: a window wider than declared stops the mixed-residency guard",
         "the run module executed end to end on a three-rung fixture ladder: every arm, a resume that rewrites nothing, the record through the binding, traces equal to CH's and residency holding at every rung",
-        "executed at the call site: a resumed CH-recent arm whose recorded CH trace differs stops the run"
+        "executed at the call site: a resumed CH-recent arm whose recorded CH trace differs stops the run",
+        "a completed store is revalidated, not trusted: with every checkpoint left present, a corrupted CH trace, a recorded residency holds=false, and a stray beside holds=true each stop both the resume and the record; a stored residency is recomputed from its fields (strays required)"
       ],
       "verification_of_controls": [
         "routing the verdict through the secondary instead of the primary turns the isolation control red",
         "FOUND AND CLOSED: disabling the trace guard's call inside the run loop survived every control (on fixtures every trace equals CH's, so the record looked right). The executed call-site control above was added; the mutant is now caught"
       ],
-      "known_limit": "the residency guards' call sites are exercised only on providers that hold their declaration; the guards themselves refuse seeded and executed faults. A provider fault at the call site would still be visible in the record (residency.holds), which the e2e asserts",
-      "no_model_arm": "no arm has run on bank 3"
+      "known_limit": "the residency guards' fresh-execution call sites are exercised only on providers that hold their declaration; the guards refuse seeded and executed faults, and every stored residency is re-checked from its fields on resume and before the record",
+      "no_model_arm": "no arm has run on bank 3",
+      "review_fix": "maintainer review of #657: on resume a present checkpoint skipped the trace and residency guards, and record() copied stored fields without re-checking them — a checkpoint's existence stood in for its guards. revalidate() now re-checks every stored compressed arm (residency recomputed from its recorded fields; each CH-recent trace against CH's stored trace) on resume and before the record. Removing either call site turns the new control red"
     }
   },
   "status": "OPEN — W1 built"

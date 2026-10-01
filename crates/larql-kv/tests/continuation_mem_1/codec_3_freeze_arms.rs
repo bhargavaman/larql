@@ -71,6 +71,45 @@ pub(super) fn mixed_residency_guard(
     )
 }
 
+/// A stored residency, recomputed from its recorded fields — never the
+/// recorded `holds` flag alone, so an inconsistent checkpoint is refused.
+pub(super) fn stored_residency_guard(arm: &str, n: usize, r: &Value) -> Result<(), String> {
+    let field = |k: &str| r[k].as_u64();
+    // Only a mixed provider records window mismatches; CH has none.
+    let zero = |k: &str| field(k).is_none_or(|v| v == 0);
+    let holds = r["holds"] == true
+        && field("append_born_live").is_some()
+        && field("append_born_live") == field("expected")
+        && field("strays") == Some(0)
+        && zero("window_mismatches")
+        && matches!((field("scratch_bytes"), field("scratch_bound")), (Some(b), Some(m)) if b <= m);
+    if holds {
+        Ok(())
+    } else {
+        Err(format!(
+            "rung {n}: stored {arm} residency does not hold — {r}"
+        ))
+    }
+}
+
+/// A checkpoint is evidence only while its guards still hold: every
+/// stored compressed arm's residency, and each CH-recent arm's trace
+/// against CH's stored trace, are re-checked on resume and before the
+/// record — a checkpoint's existence is never taken as proof.
+pub(super) fn revalidate(spec: ArmSpec, n: usize, store: &Checkpoints) -> Result<(), String> {
+    let stored: Value = store
+        .read(&scores_name(n, &spec.key()))
+        .ok_or_else(|| format!("rung {n}: {} has no checkpoint", spec.name))?;
+    stored_residency_guard(spec.name, n, &stored["residency"])?;
+    if spec.provider != Provider::Codec {
+        let ch: Value = store
+            .read(&scores_name(n, &ARMS[0].key()))
+            .ok_or_else(|| format!("rung {n}: CH has no checkpoint"))?;
+        trace_guard(spec.name, n, &ch["trace"], &stored["trace"])?;
+    }
+    Ok(())
+}
+
 /// One traced arm: decode logits, the trace, and `read` of the measured
 /// provider after the journey.
 fn traced<P: Inspect + Retained, B: PlanBackend, R>(
@@ -179,6 +218,7 @@ pub(super) fn run_arms<B: PlanBackend>(
         for spec in ARMS {
             let key = spec.key();
             if store.read::<Value>(&scores_name(n, &key)).is_some() {
+                revalidate(spec, n, store).unwrap_or_else(|stop| panic!("{stop}"));
                 continue;
             }
             let t = std::time::Instant::now();
@@ -209,6 +249,11 @@ pub(super) fn record(
     store: &Checkpoints,
     ladder: &Ladder,
 ) -> Value {
+    for &n in &ladder.rungs {
+        for spec in ARMS {
+            revalidate(spec, n, store).unwrap_or_else(|stop| panic!("{stop}"));
+        }
+    }
     let c = strata(store, ladder, "c", "positions");
     let arms: BTreeMap<String, Vec<Vec<PositionMetrics>>> = ARMS
         .iter()
