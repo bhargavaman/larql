@@ -8,8 +8,8 @@
   "why": "CODEC-2 closed NOT ACCEPTABLE on its tail rule (B3 upper 0.617 against 0.290; continuation-codec-2-notes.json, closure). CODEC-MAP-1 (#654) localised that tail on calibration text to recent K, with a strong interaction: protecting the newest 256 K rows removed 94% of CH's worst-5% incremental damage in simulation. The CODEC-3 reconnaissance (#655) built the real provider, proved it scores identically to that simulation, measured its residency exactly, and chose w = 256 by a rule declared before its sweep (w = 128 missed that rule's wide-tail threshold by under a point). This freeze asks whether the calibration result holds on new text, by the rules that failed codec/v1",
   "decomposition": {
     "A_calibration": "is C a usable baseline — R ↔ C; a narrow guard, not a verdict",
-    "B_verdict": "the incremental damage the PRIMARY candidate CH-recent256 adds to the already-quantised execution — C ↔ CH-recent256, both scored against R on the same positions, paired",
-    "secondary": "CH-recent128 measured identically (B1–B4 and every reported quantity) and reported separately. It is REPORT-ONLY: its result cannot change the primary verdict, rescue a failed primary, or replace it",
+    "B_verdict": "the incremental damage the primary arm (acceptance.rule_binding.primary) adds to the already-quantised execution — C ↔ primary, both scored against R on the same positions, paired",
+    "secondary": "the secondary arm (acceptance.rule_binding.secondary_report_only) measured identically (B1–B4 and every reported quantity) and reported separately. It is REPORT-ONLY: its result cannot change the primary verdict, rescue a failed primary, or replace it",
     "reference_CH": "CH (uniform codec/v1) is re-measured on bank 3 under B1–B4 and reported, not adjudicated: it says whether CODEC-2's failure recurs on this text, so a CH-recent result is read against its own control",
     "end_to_end": "R ↔ each candidate; reported, not adjudicated"
   },
@@ -41,17 +41,24 @@
     "inherited_from": {
       "file": "continuation-codec-2.json",
       "sha256": "a2531fc330e94b88f1365a1d5d26a41c61fda02896bad9878b4db45dab853aa4",
-      "carried_verbatim": "acceptance.scored_positions, acceptance.metric, acceptance.rule (subject, B1–B4, bootstrap) and guards rule/null/A_yardstick_usable are byte-for-byte CODEC-2's (copied by program from the file above)",
-      "substitution": "wherever CODEC-2's rule text names CH as the subject under test, the subject is CH-recent256 for the verdict (and CH-recent128 for the report-only secondary). C, R, δ, ε, the tail factor, N_MIN, the band threshold, the block length, the stratification, the replicate count and the seed 0xC0DEC2 are unchanged",
+      "carried_verbatim": "acceptance.scored_positions, acceptance.metric, acceptance.rule (subject, B1–B4, bootstrap) and guards rule/null/A_yardstick_usable are byte-for-byte CODEC-2's (copied by program from the file above); their candidate symbol is resolved by acceptance.rule_binding, never by reading the inherited text literally",
       "edited_guards": "bank (bank 3), bindings (the new arms), residency_regression (mixed residency for the CH-recent arms), and one added guard, trace"
+    },
+    "rule_binding": {
+      "authority": "the ONE place this freeze names its verdict subject. The inherited acceptance.rule is CODEC-2's bytes and still says CH; it is evaluated through this binding. A run module reads these fields; it never hard-codes an arm name for the verdict",
+      "inherited_symbol": "CH",
+      "primary": "CH-recent256",
+      "secondary_report_only": "CH-recent128",
+      "control_report_only": "CH",
+      "evaluation": "for the CODEC-3 verdict, every occurrence of inherited_symbol in acceptance.rule (rule.subject and B1–B4: b, c, d_i = KL(R‖·)_i − KL(R‖C)_i, the in-band counts) is evaluated with the primary arm. The verdict is the primary's alone — ACCEPTABLE / NOT ACCEPTABLE / UNINFORMATIVE exactly as rule.subject defines. secondary_report_only and control_report_only are evaluated by the same rule, reported beside it, and cannot change, rescue or replace it. C, R, δ, ε, the tail factor, N_MIN, the band threshold, the block length, the stratification, the replicate count and the seed 0xC0DEC2 are CODEC-2's"
     },
     "arms": {
       "R": "reference: row/v1 on gemma3-4b-it.vindex3 (full-precision weights, BF16 decoder stack as bound by a plain open)",
       "NULL": "window/v1 on the same container; must be bit-identical to R (KL 0, same top-1 at every scored position)",
       "C": "row/v1 on gemma3-4b-it.q4k.vindex3 opened for the Q4_K pack; admissible only if its recorded selection binds target.decoder_stack → Q4_K, stored, Q4_K rev 1",
-      "CH": "codec/v1 bits 4 on the SAME Q4_K-bound store as C; reported reference (CODEC-2's failed candidate), not adjudicated",
-      "CH-recent256": "the PRIMARY candidate: codec-recent/v1, bits 4, exact_recent_k 256, on the SAME Q4_K-bound store as C, with the same selection guard",
-      "CH-recent128": "the SECONDARY, report-only: codec-recent/v1, bits 4, exact_recent_k 128, same store",
+      "CH": "codec/v1 bits 4 on the SAME Q4_K-bound store as C (CODEC-2's failed candidate); its role is acceptance.rule_binding's",
+      "CH-recent256": "codec-recent/v1, bits 4, exact_recent_k 256, on the SAME Q4_K-bound store as C, with the same selection guard; its role is acceptance.rule_binding's",
+      "CH-recent128": "codec-recent/v1, bits 4, exact_recent_k 128, on the same store; its role is acceptance.rule_binding's",
       "dropped": "H (codec on full-precision weights): CODEC-2 reported it; the question here is the stacked path only"
     },
     "text": "the frozen held-out bank continuation-codec-3-token-bank.json (8,193 IDs, sha256 80d188d3… over u32 LE; New Grub Street, Gissing, Gutenberg #1709, passage committed beside it) is the authority: every arm consumes exactly those IDs, digest verified at load; an arm fed any other sequence is inadmissible",
@@ -74,7 +81,6 @@
       "B4_confident_band": "B1's paired McNemar bound restricted to the positions where R's margin ≥ 0.9 (n_conf of them): with b, c counted within the band, lower = (b − c)/n_conf − 1.6449 × sqrt((b + c) − (b − c)²/n_conf)/n_conf. Minimum support N_MIN = 350: if n_conf < 350, B4 is UNINFORMATIVE (and so is an otherwise-passing verdict); else B4 HOLDS iff lower ≥ −δ. N_MIN is the positions a δ = 0.03 non-inferiority test needs at 80% power for band discordance up to 0.05 — about 5× C's own in-band flip rate on bank 1 (0.011); bank 1's band share (24.3%) projects ~750 band positions at 3,072. The band is relative to C: on bank 1, C scores 0.989 there, and no absolute bar near 0.995 is reachable by C on any band",
       "bootstrap": "B2 and B3 share one STRATIFIED block bootstrap. Each rung's 1,024 scored positions form 32 non-overlapping blocks of 32 consecutive positions (block length from the reconnaissance). Every replicate samples, with replacement, exactly 32 blocks from rung 2,048, 32 from rung 4,096 and 32 from rung 8,192, and pools the resulting 3,072 positions — the rungs are different passages, and the experiment fixes each at one third, so no replicate may reweight them. 10,000 replicates, driven by SplitMix64 seeded 0xC0DEC2, so every bound is reproducible"
     },
-    "verdict_subject": "the verdict is CH-recent256's alone: ACCEPTABLE / NOT ACCEPTABLE / UNINFORMATIVE exactly as CODEC-2's rule.subject defines for its candidate. CH-recent128's and CH's B1–B4 outcomes are reported beside it and change nothing",
     "reported_not_adjudicated": [
       "CH and CH-recent128 under B1–B4, pooled and per rung, with the same bootstrap",
       "R ↔ each arm: KL mean/p50/p99/max, top-1, per rung and per margin band",
@@ -99,7 +105,7 @@
     {
       "id": "W1",
       "name": "instrument",
-      "scope": "codec_3_freeze run module in crates/larql-kv/tests/continuation_mem_1: bank 3 loaded and digest-verified; arms R, NULL, C, CH, CH-recent256, CH-recent128 with the guards above and resumable checkpoints (four authorities; scores and logits under distinct names — CODEC-2 W2's overwrite fault); C's decode logits kept per rung; CODEC-2's statistics applied per arm, the verdict computed for CH-recent256 only. Fixture controls: the run module executed end to end on fixtures (including a resume), the verdict reading only the primary arm (a fixture where the secondary passes and the primary fails is NOT ACCEPTABLE), and the trace and mixed-residency guards stopping on a seeded fault. No model arm runs in W1"
+      "scope": "codec_3_freeze run module in crates/larql-kv/tests/continuation_mem_1: bank 3 loaded and digest-verified; arms R, NULL, C, CH, CH-recent256, CH-recent128 with the guards above and resumable checkpoints (four authorities; scores and logits under distinct names — CODEC-2 W2's overwrite fault); C's decode logits kept per rung; CODEC-2's statistics applied per arm; the arm roles and the verdict subject read from acceptance.rule_binding in this file, not hard-coded. Fixture controls: the run module executed end to end on fixtures (including a resume); secondary isolation in BOTH directions — the secondary passes and the primary fails ⇒ NOT ACCEPTABLE, and the primary passes and the secondary fails ⇒ ACCEPTABLE; and the trace and mixed-residency guards stopping on a seeded fault. No model arm runs in W1"
     },
     {
       "id": "W2",
@@ -110,5 +116,6 @@
   "operational_note": "each rung runs six arms with 1,024 decode positions; expect several CPU hours. Tell peer sessions before starting; the run is resumable",
   "gates_before_each_push": "cargo fmt --all --check; clippy -D warnings for larql-kv tests and larql-server's continuation_mem_1_handoff (it includes harness files by path); larql-kv tests --no-fail-fast; the MEM-1 harness controls; python3 -m unittest for scripts/test_codec2_token_bank.py, scripts/test_codec3_token_bank.py and scripts/test_codec3_freeze.py; doc-link check; no trailers in any commit message or PR body (the 'no generated attribution' gate)",
   "next": "if CH-recent256 holds: the materialisation/decode-cost rung for codec-recent/v1, and the exact window's precision as a representation question. Either way, the cross-architecture rung: CODEC-MAP-1's localisation (K/V, depth, attention type, age) re-run on structurally different models (Granite, Qwen 3.x; Kimi or another hybrid as the expected different regime) to ask whether 'recent K fragile, V tolerant, older K compressible' recurs. Agreement suggests a continuation principle; disagreement argues for AUTO-CONTINUATION-REP choosing a map per model. If CH-recent256 fails: the finding names which rule and by how much, read against CH on the same bank",
-  "immutability": "Frozen at its commit. Per-wave findings and design changes go in continuation-codec-3-notes.json with the reason; this file is not edited."
+  "immutability": "Frozen at its commit. Per-wave findings and design changes go in continuation-codec-3-notes.json with the reason; this file is not edited.",
+  "revision_before_merge": "2026-10-01, on maintainer review of #656 before merge and before any bank-3 arm: the verdict subject was named in two places (the inherited rule's literal 'CH' and a separate verdict_subject field). It is now named once, in acceptance.rule_binding (inherited symbol CH → primary CH-recent256; CH-recent128 and CH report-only); verdict_subject and inherited_from.substitution were folded into it; W1 reads the binding and gains the inverse isolation control (primary passes, secondary fails ⇒ ACCEPTABLE). The inherited rule bytes are unchanged. No arm had run on bank 3 when this changed"
 }
