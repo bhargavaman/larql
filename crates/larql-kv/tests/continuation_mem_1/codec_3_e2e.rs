@@ -151,6 +151,7 @@ fn line(wide: f64, narrow: f64) -> MapLine {
 
 #[test]
 fn the_selection_rule_takes_the_smallest_window_saturating_both_tails() {
+    let _serial = serial();
     let curve = [
         (512, line(0.96, 1.0)),
         (64, line(0.40, 0.30)),

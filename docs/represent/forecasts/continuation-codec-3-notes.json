@@ -32,7 +32,8 @@
       ],
       "known_limit": "the residency guards' fresh-execution call sites are exercised only on providers that hold their declaration; the guards refuse seeded and executed faults, and every stored residency is re-checked from its fields on resume and before the record",
       "no_model_arm": "no arm has run on bank 3",
-      "review_fix": "maintainer review of #657: on resume a present checkpoint skipped the trace and residency guards, and record() copied stored fields without re-checking them — a checkpoint's existence stood in for its guards. revalidate() now re-checks every stored compressed arm (residency recomputed from its recorded fields; each CH-recent trace against CH's stored trace) on resume and before the record. Removing either call site turns the new control red"
+      "review_fix": "maintainer review of #657: on resume a present checkpoint skipped the trace and residency guards, and record() copied stored fields without re-checking them — a checkpoint's existence stood in for its guards. revalidate() now re-checks every stored compressed arm (residency recomputed from its recorded fields; each CH-recent trace against CH's stored trace) on resume and before the record. Removing either call site turns the new control red",
+      "ci_fault": "CI coverage (ubuntu) failed four mechanism_subjects_fixtures tests with 'instrument invalid': W1's controls did not take the harness serial() lock, so their allocations (above all the 10,000-replicate bootstraps of the isolation control) landed inside the mechanism tests' process-global allocator scopes. Reproduced locally on the pre-fix code by running the mechanism tests beside the isolation control on two threads: instrument invalid in 5/5 runs; with every W1 test serialised (and the reconnaissance's one unserialised test, the same class), 5/5 pass. No W1 statistic or verdict path changed"
     }
   },
   "status": "OPEN — W1 built"

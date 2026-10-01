@@ -231,6 +231,7 @@ fn a_completed_store_is_revalidated_not_trusted() {
 
 #[test]
 fn a_stored_residency_is_recomputed_from_its_fields() {
+    let _serial = serial();
     let held = json!({"holds": true, "append_born_live": 10, "expected": 10, "strays": 0,
         "scratch_bytes": 4, "scratch_bound": 8});
     stored_residency_guard("CH", 1, &held).unwrap();

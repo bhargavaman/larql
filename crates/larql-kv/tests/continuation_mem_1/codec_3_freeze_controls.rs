@@ -55,6 +55,7 @@ fn verdict_of(v: &Value) -> &str {
 
 #[test]
 fn the_binding_is_read_from_the_freeze_as_frozen() {
+    let _serial = serial();
     let binding = Binding::from_freeze(&freeze()).unwrap();
     assert_eq!(
         binding,
@@ -71,6 +72,7 @@ fn the_binding_is_read_from_the_freeze_as_frozen() {
 /// and each runs what the freeze's description says.
 #[test]
 fn the_arm_table_is_the_freezes() {
+    let _serial = serial();
     let freeze = freeze();
     let declared: Vec<&String> = freeze["acceptance"]["arms"]
         .as_object()
@@ -101,6 +103,7 @@ fn the_arm_table_is_the_freezes() {
 
 #[test]
 fn a_malformed_binding_is_refused() {
+    let _serial = serial();
     let base = freeze();
     let refused = |edit: &dyn Fn(&mut Value)| {
         let mut f = base.clone();
@@ -122,6 +125,7 @@ fn a_malformed_binding_is_refused() {
 
 #[test]
 fn bank_3_is_the_one_the_freeze_names() {
+    let _serial = serial();
     let freeze = freeze();
     let ids = bank3(&freeze).unwrap();
     assert_eq!(ids.len(), BANK_LEN);
@@ -147,6 +151,7 @@ fn bound(primary_kl: f64, secondary_kl: f64) -> Value {
 /// rescue a failed primary nor poison a passing one.
 #[test]
 fn the_verdict_is_the_primarys_alone_in_both_directions() {
+    let _serial = serial();
     let rescue = bound(C_KL + FAILING_EXTRA_KL, C_KL);
     assert_eq!(verdict_of(&rescue["verdict"]), "NotAcceptable");
     assert_eq!(
@@ -165,6 +170,7 @@ fn the_verdict_is_the_primarys_alone_in_both_directions() {
 
 #[test]
 fn the_trace_and_residency_guards_stop_on_a_fault() {
+    let _serial = serial();
     let ch = json!(["1", 10]);
     trace_guard("CH-recent256", 2_048, &ch, &json!(["1", 10])).unwrap();
     let moved = trace_guard("CH-recent256", 2_048, &ch, &json!(["2", 10])).unwrap_err();
